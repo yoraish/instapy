@@ -145,8 +145,8 @@ if __name__ == "__main__":
 
             if start_time_utc < datetime.datetime.now():
                 # the time now is AFTER the start time. that's bad.
-                post_server('ERROR - START TIME ' + str(start_time) +  ' ALREADY PASSED')
-                raise InterruptedError('ERROR - START TIME ' + str(start_time) +  ' ALREADY PASSED')
+                post_server('ERROR - START TIME ' + str(start_time_utc) +  ' ALREADY PASSED')
+                raise InterruptedError('ERROR - START TIME ' + str(start_time_utc) +  ' ALREADY PASSED')
                 
             else:
                 state = 1
@@ -207,4 +207,4 @@ if __name__ == "__main__":
             makeVideo(fps, imageList)
             post_server("Done! In"  + str( datetime.datetime.now() - start_time_utc ) )
 
-            break
+            state = 0
