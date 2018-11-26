@@ -28,7 +28,10 @@ def makeVideo(fps, imageList):
 
 def post_server(string):
     payload = {'status': string}
-    requests.post('https://yorai.scripts.mit.edu/instapy_server/ping.py', params = payload)
+    try:
+        requests.post('https://yorai.scripts.mit.edu/instapy_server/ping.py', params = payload)
+    except:
+        print('connections lost')
 
 def init_timelapse(slow_factor = 2):
 
@@ -73,20 +76,24 @@ def get_sunrise_time():
     minute = int(time_lst[1])
 
     # set so it is the next day
-    start_time_utc = datetime.datetime.now() + datetime.timedelta(days = 1)
+    start_time_utc = datetime.datetime.now() #+ datetime.timedelta(days = 1)
     start_time_utc = start_time_utc.replace(hour = hour, minute = minute, second = 0)
 
     # set to be 45 minutes before sunrise
     start_time_utc = start_time_utc - datetime.timedelta(minutes = 45)
+
+    # check we are in the corrent date:
+    if start_time_utc < datetime.datetime.now():
+        # if the start time in the past, add one day
+        start_time_utc +=  datetime.timedelta(days = 1)
+    
+
     return start_time_utc
 
 
 
 
 last_update_time = datetime.datetime.now() - datetime.timedelta(minutes = 3)
-
-
-
 
 
 
@@ -118,13 +125,20 @@ if __name__ == "__main__":
 
             start_time_utc = get_sunrise_time()
 
+
+########### manually change start time
+
+
             # start_hour = 23
-            # start_min = 3
+            # start_min = 32
             # start_sec = 30
 
             # start_time = datetime.datetime.now()
             # start_time = start_time.replace(hour = start_hour, minute = start_min, second = 0)
             # start_time_utc = start_time + datetime.timedelta(hours = 5) - datetime.timedelta(days = 1)
+
+
+###########
 
             print('start time' ,start_time_utc)
             print('time now', datetime.datetime.now())
@@ -152,7 +166,7 @@ if __name__ == "__main__":
             # check the time
             if datetime.datetime.now() >= start_time_utc:
                 post_server('TIME TO START FILMING')
-                init_timelapse(1)
+                init_timelapse(700)
                 state = 3
             
             else:
