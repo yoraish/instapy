@@ -9,12 +9,68 @@ import requests
 import datetime
 import os
 import glob
+import creds
+
+# imports for email
+import smtplib
+import os.path as op
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email.utils import COMMASPACE, formatdate
+from email import encoders
+
+
+# function for email sending
+
+def send_mail(send_from, send_to, subject, message, files=[],
+              server="smtp.gmail.com", port=587, username=creds.email, password=creds.password,
+              use_tls=True):
+    """Compose and send email with provided info and attachments.
+
+    Args:
+        send_from (str): from name
+        send_to (str): to name
+        subject (str): message title
+        message (str): message body
+        files (list[str]): list of file paths to be attached to email
+        server (str): mail server host name
+        port (int): port number
+        username (str): server auth username
+        password (str): server auth password
+        use_tls (bool): use TLS mode
+    """
+    msg = MIMEMultipart()
+    msg['From'] = send_from
+    msg['To'] = send_to
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(message))
+
+    for path in files:
+        part = MIMEBase('application', "octet-stream")
+        with open(path, 'rb') as file:
+            part.set_payload(file.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition',
+                        'attachment; filename="{}"'.format(op.basename(path)))
+        msg.attach(part)
+
+    smtp = smtplib.SMTP(server, port)
+    if use_tls:
+        smtp.starttls()
+    smtp.login(username, password)
+    smtp.sendmail(send_from, send_to, msg.as_string())
+    smtp.quit()
+
+
 
 
 def makeVideo(fps, imageList):
     height , width , layers =  imageList[0].shape
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')  # 'x264' doesn't work
-    video = cv2.VideoWriter('timelapse2.avi',fourcc,fps,(width,height), True)
+    video = cv2.VideoWriter('timelapse_new.avi',fourcc,fps,(width,height), True)
     fgbg= cv2.createBackgroundSubtractorMOG2()
 
     for image in imageList:
@@ -32,6 +88,14 @@ def post_server(string):
         requests.post('https://yorai.scripts.mit.edu/instapy_server/ping.py', params = payload)
     except:
         print('connections lost')
+
+
+def init_camera():
+    '''
+    creates a global object for the camera module
+    '''
+    global camera
+    camera = PiCamera()
 
 def init_timelapse(slow_factor = 2):
 
@@ -53,8 +117,9 @@ def init_timelapse(slow_factor = 2):
     print('| The process will take = ', videoLen*slowFactor , 'seconds, which are', videoLen*slowFactor/60 ,'minutes')
 
     global camera 
-    camera = PiCamera()
+    # camera = PiCamera()
     camera.vflip = True
+    camera.hflip = True
     global last_capture_time 
     last_capture_time = datetime.datetime.now() - datetime.timedelta(days = 1)
     global image_counter 
@@ -87,7 +152,7 @@ def get_sunrise_time():
         # if the start time in the past, add one day
         start_time_utc +=  datetime.timedelta(days = 1)
     
-
+    # return datetime.datetime.now() + datetime.timedelta(minutes = 1)
     return start_time_utc
 
 
@@ -118,6 +183,11 @@ if __name__ == "__main__":
 
     * export video to somewhere
     '''
+
+
+    # initialize the camera before the loop
+    init_camera()
+    
     state = 0
     while True:
         # gather info from the web
@@ -157,6 +227,11 @@ if __name__ == "__main__":
             print('Initializing Instapy')
             post_server('INITIALIZING INSTAPYY')
             print (datetime.datetime.now())
+            # also send email
+
+            send_mail('INSTAPY', creds.email, 'Instapy initializing', 'yis')
+
+            print('Now waiting to start time:', start_time_utc)
             state = 2
         
         # the waiting state.
@@ -207,4 +282,6 @@ if __name__ == "__main__":
             makeVideo(fps, imageList)
             post_server("Done! In"  + str( datetime.datetime.now() - start_time_utc ) )
 
+            # send the file in an email
+            send_mail('INSTAPY', creds.email, '[INSTAPY] Timelapse Ready!', 'Please see attached', ['timelapse_new.avi'])
             state = 0
